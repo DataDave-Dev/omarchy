@@ -56,7 +56,8 @@ rm -f "$disable_flag" "$mirror_flag"
 run_internal off
 grep -F 'disabled = true' "$disable_flag" >/dev/null ||
   fail "internal monitor disable writes the Hyprland rule" "$(cat "$disable_flag" 2>&1)"
-grep -F 'reload' "$hyprctl_log" >/dev/null || fail "internal monitor disable reloads Hyprland"
+(( $(grep -c 'reload' "$hyprctl_log") == 1 )) ||
+  fail "internal monitor disable reloads Hyprland once without mirroring" "$(cat "$hyprctl_log")"
 pass "internal monitor disable writes the Hyprland rule"
 
 # Mirroring drives the internal output as well. Before, the disable path bailed
@@ -76,6 +77,14 @@ pass "internal monitor disable works while mirroring is on"
 run_internal on
 [[ ! -f $disable_flag ]] || fail "internal monitor enable clears the disable rule"
 pass "internal monitor enable clears the disable rule"
+
+# Super + Ctrl + Delete calls toggle, which has to reach the same path.
+printf 'hl.monitor({ output = "DP-1", mirror = "eDP-1" })\n' >"$mirror_flag"
+run_internal toggle
+[[ ! -f $mirror_flag ]] || fail "internal monitor toggle clears mirroring first"
+grep -F 'disabled = true' "$disable_flag" >/dev/null ||
+  fail "internal monitor toggle disables the display while mirroring is on" "$(cat "$disable_flag" 2>&1)"
+pass "internal monitor toggle disables the display while mirroring is on"
 
 rm -f "$disable_flag" "$mirror_flag"
 OMARCHY_TEST_EXTERNAL_ACTIVE=false run_internal off && status=0 || status=$?
